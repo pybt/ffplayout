@@ -242,10 +242,12 @@ pub struct General {
     #[ts(skip)]
     #[serde(skip_serializing, skip_deserializing)]
     pub validate: bool,
+    pub preview_url: String,
+    pub public_path: String,
 }
 
 impl General {
-    fn new(config: &models::Configuration) -> Self {
+    fn new(config: &models::Configuration, channel: &models::Channel) -> Self {
         Self {
             id: config.id,
             channel_id: config.channel_id,
@@ -257,6 +259,8 @@ impl General {
             template: None,
             skip_validation: false,
             validate: false,
+            preview_url: channel.preview_url.clone(),
+            public_path: channel.public.clone(),
         }
     }
 }
@@ -631,9 +635,10 @@ impl PlayoutConfig {
             config.output_id = id;
         }
 
+        let channel_data = channel.clone();
         let channel = Channel::new(&global, channel);
         let advanced = AdvancedConfig::new(adv_config);
-        let general = General::new(&config);
+        let general = General::new(&config, &channel_data);
         let mail = Mail::new(&global, &config);
         let logging = Logging::new(&config);
         let mut processing = Processing::new(&config);
@@ -866,6 +871,24 @@ impl PlayoutConfig {
 
             let config: PlayoutConfig = toml_edit::de::from_str(&contents).unwrap();
 
+            // Update channel settings if they're provided in the TOML
+            let mut channel_updated = false;
+            let mut channel = handles::select_channel(pool, &id).await?;
+
+            if !config.general.preview_url.is_empty() {
+                channel.preview_url = config.general.preview_url.clone();
+                channel_updated = true;
+            }
+
+            if !config.general.public_path.is_empty() {
+                channel.public = config.general.public_path.clone();
+                channel_updated = true;
+            }
+
+            if channel_updated {
+                handles::update_channel(pool, id, channel).await?;
+            }
+
             handles::update_configuration(pool, id, config).await?;
         } else {
             return Err(ServiceError::BadRequest("Path not exists!".to_string()));
@@ -998,6 +1021,11 @@ pub async fn get_config(
 
     if let Some(smtp_port) = args.smtp_port {
         config.mail.smtp_port = smtp_port;
+    }
+
+    if let Some(public) = args.public {
+        config.channel.public = PathBuf::from(&public);
+        config.general.public_path = public;
     }
 
     Ok(config)
