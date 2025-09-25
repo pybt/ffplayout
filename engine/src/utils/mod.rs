@@ -163,7 +163,15 @@ pub fn public_path() -> PathBuf {
     let dev_path = env::current_dir()
         .unwrap_or_default()
         .join("frontend/.output/public/");
-    let mut public_path = PathBuf::from(&config.public);
+
+    // Use default path if config.public is empty
+    let default_public_path = if config.public.trim().is_empty() {
+        "/var/www/html/live".to_string()
+    } else {
+        config.public.clone()
+    };
+
+    let mut public_path = PathBuf::from(&default_public_path);
 
     if let Some(p) = &ARGS.public {
         // When public path is set as argument use this path for serving static files.

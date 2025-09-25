@@ -259,8 +259,26 @@ impl General {
             template: None,
             skip_validation: false,
             validate: false,
-            preview_url: channel.preview_url.clone(),
-            public_path: channel.public.clone(),
+            preview_url: Self::get_preview_url_or_default(&channel.preview_url),
+            public_path: Self::get_public_path_or_default(&channel.public),
+        }
+    }
+
+    /// Get preview_url with default fallback if empty
+    fn get_preview_url_or_default(preview_url: &str) -> String {
+        if preview_url.trim().is_empty() {
+            "http://localhost:8080/live/stream.m3u8".to_string()
+        } else {
+            preview_url.to_string()
+        }
+    }
+
+    /// Get public_path with default fallback if empty
+    fn get_public_path_or_default(public_path: &str) -> String {
+        if public_path.trim().is_empty() {
+            "/var/www/html/live".to_string()
+        } else {
+            public_path.to_string()
         }
     }
 }
@@ -875,13 +893,27 @@ impl PlayoutConfig {
             let mut channel_updated = false;
             let mut channel = handles::select_channel(pool, &id).await?;
 
-            if !config.general.preview_url.is_empty() {
-                channel.preview_url = config.general.preview_url.clone();
+            // Use provided value or set to default if empty
+            let preview_url = if config.general.preview_url.trim().is_empty() {
+                "http://localhost:8080/live/stream.m3u8".to_string()
+            } else {
+                config.general.preview_url.clone()
+            };
+
+            let public_path = if config.general.public_path.trim().is_empty() {
+                "/var/www/html/live".to_string()
+            } else {
+                config.general.public_path.clone()
+            };
+
+            // Always update with validated values
+            if channel.preview_url != preview_url {
+                channel.preview_url = preview_url;
                 channel_updated = true;
             }
 
-            if !config.general.public_path.is_empty() {
-                channel.public = config.general.public_path.clone();
+            if channel.public != public_path {
+                channel.public = public_path;
                 channel_updated = true;
             }
 

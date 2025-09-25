@@ -57,13 +57,39 @@ const OUTPUT_HLS: &str = "-c:v libx264 -crf 23 -x264-params keyint=50:min-keyint
 const OUTPUT_STREAM: &str = "-c:v libx264 -crf 23 -x264-params keyint=50:min-keyint=25:scenecut=-1 -maxrate 1300k -bufsize 2600k -preset faster -tune zerolatency -profile:v Main -level 3.1 -c:a aac -ar 44100 -b:a 128k -flags +global_header -f flv rtmp://127.0.0.1/live/stream";
 const OUTPUT_NULL: &str = "-f null -";
 
+/// Validate and set default values for channel fields
+fn validate_and_set_defaults(mut channel: Channel) -> Channel {
+    // Set default preview_url if empty
+    if channel.preview_url.trim().is_empty() {
+        channel.preview_url = "http://localhost:8080/live/stream.m3u8".to_string();
+    }
+
+    // Set default public path if empty
+    if channel.public.trim().is_empty() {
+        channel.public = "/var/www/html/live".to_string();
+    }
+
+    // Set default playlists path if empty
+    if channel.playlists.trim().is_empty() {
+        channel.playlists = "/var/lib/ffplayout/playlists".to_string();
+    }
+
+    // Set default storage path if empty
+    if channel.storage.trim().is_empty() {
+        channel.storage = "/var/lib/ffplayout/storage".to_string();
+    }
+
+    channel
+}
+
 pub async fn create_channel(
     conn: &Pool<Sqlite>,
     controllers: Arc<RwLock<ChannelController>>,
     queue: Arc<Mutex<Vec<Arc<Mutex<MailQueue>>>>>,
     target_channel: Channel,
 ) -> Result<Channel, ServiceError> {
-    let channel = handles::insert_channel(conn, target_channel).await?;
+    let validated_channel = validate_and_set_defaults(target_channel);
+    let channel = handles::insert_channel(conn, validated_channel).await?;
     let outputs = [
         models::Output::new(channel.id, OutputMode::HLS, OUTPUT_HLS.to_string()),
         models::Output::new(channel.id, OutputMode::Stream, OUTPUT_STREAM.to_string()),

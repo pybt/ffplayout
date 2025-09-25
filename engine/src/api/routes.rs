@@ -467,6 +467,15 @@ async fn patch_channel(
         data.storage = channel.storage;
     }
 
+    // Validate and set defaults for empty fields
+    if data.preview_url.trim().is_empty() {
+        data.preview_url = "http://localhost:8080/live/stream.m3u8".to_string();
+    }
+
+    if data.public.trim().is_empty() {
+        data.public = "/var/www/html/live".to_string();
+    }
+
     handles::update_channel(&pool, *id, data.clone()).await?;
     let new_config = get_config(&pool, *id).await?;
 
