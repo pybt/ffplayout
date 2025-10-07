@@ -1020,8 +1020,8 @@ pub async fn get_config(
         config.channel.playlists = PathBuf::from(&playlist);
     }
 
-    if let Some(public) = args.public {
-        config.channel.public = PathBuf::from(&public);
+    if let Some(ref public) = args.public {
+        config.channel.public = PathBuf::from(public);
     }
 
     if let Some(folder) = args.folder {
